@@ -187,3 +187,6 @@ deploy/helm/rag-values.yaml.old
 
 # Ansible secrets (contains F5 XC tokens)
 deploy/ansible/group_vars/all/secrets.yml
+
+# Ansible Galaxy collections (installed at runtime by make f5-deploy)
+deploy/ansible/collections/
