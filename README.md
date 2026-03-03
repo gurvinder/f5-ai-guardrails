@@ -1,4 +1,4 @@
-# Secure AI applications with F5 Distributed Cloud API Security
+# Secure Model Inference with F5 Distributed Cloud API Security
 
 Secure AI-powered financial services applications against injection attacks, shadow APIs, and abuse while safeguarding sensitive financial data.
 
