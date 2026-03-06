@@ -153,6 +153,10 @@ help: ## Show this help message
 	@echo -e "  monitor       - Monitor deployment status"
 	@echo -e "  config        - Show current configuration"
 	@echo -e ""
+	@echo -e "$(GREEN)F5 XC Targets:$(NC)"
+	@echo -e "  f5-deploy     - Deploy F5 XC Customer Edge mesh (Ansible)"
+	@echo -e "  f5-clean      - Remove F5 XC deployment and cluster resources"
+	@echo -e ""
 	@echo -e "$(GREEN)Management Targets:$(NC)"
 	@echo -e "  clean         - Clean up all resources including namespace"
 	@echo -e "  init-config   - Initialize configuration from example"
@@ -477,3 +481,45 @@ delete-jobs: ## Delete all jobs in the namespace
 	@echo -e "$(BLUE)[INFO]$(NC) Deleting all jobs in namespace $(NAMESPACE)..."
 	@oc delete jobs -n $(NAMESPACE) --all ||:
 	@echo -e "$(GREEN)[SUCCESS]$(NC) Job deletion completed"
+
+# --- F5 XC Deployment (Ansible) ---
+ANSIBLE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))../ansible
+ANSIBLE_TAGS ?=
+
+.PHONY: f5-deploy
+f5-deploy: ## Deploy F5 XC Customer Edge mesh via Ansible
+	@command -v ansible-playbook >/dev/null 2>&1 || { \
+		echo -e "$(RED)[ERROR]$(NC) ansible-playbook not found."; \
+		echo -e "$(BLUE)[INFO]$(NC) Activate your Ansible venv or install Ansible:"; \
+		echo -e "        pip install ansible kubernetes"; \
+		exit 1; \
+	}
+	@if [ ! -f "$(ANSIBLE_DIR)/group_vars/all/secrets.yml" ]; then \
+		echo -e "$(RED)[ERROR]$(NC) secrets.yml not found at $(ANSIBLE_DIR)/group_vars/all/secrets.yml"; \
+		echo -e ""; \
+		echo -e "$(YELLOW)Create it from the example:$(NC)"; \
+		echo -e "  cp $(ANSIBLE_DIR)/group_vars/all/secrets.yml.example \\"; \
+		echo -e "     $(ANSIBLE_DIR)/group_vars/all/secrets.yml"; \
+		echo -e ""; \
+		echo -e "Then set $(BLUE)f5xc_token$(NC) and $(BLUE)f5xc_cluster_name$(NC) before re-running."; \
+		exit 1; \
+	fi
+	@echo -e "$(BLUE)[INFO]$(NC) Installing Ansible collection dependencies..."
+	@ansible-galaxy collection install -r "$(ANSIBLE_DIR)/requirements.yml" --force-with-deps -p "$(ANSIBLE_DIR)/collections" >/dev/null
+	@echo -e "$(BLUE)[INFO]$(NC) Running F5 XC CE deployment playbook..."
+	@ANSIBLE_STDOUT_CALLBACK=default ANSIBLE_CALLBACK_RESULT_FORMAT=yaml ansible-playbook "$(ANSIBLE_DIR)/site.yml" \
+		-e "ansible_collections_path=$(ANSIBLE_DIR)/collections" \
+		$(if $(ANSIBLE_TAGS),--tags "$(ANSIBLE_TAGS)",)
+
+.PHONY: f5-clean
+f5-clean: ## Remove F5 XC Customer Edge deployment and cluster resources
+	@command -v ansible-playbook >/dev/null 2>&1 || { \
+		echo -e "$(RED)[ERROR]$(NC) ansible-playbook not found."; \
+		echo -e "$(BLUE)[INFO]$(NC) Activate your Ansible venv or install Ansible:"; \
+		echo -e "        pip install ansible kubernetes"; \
+		exit 1; \
+	}
+	@echo -e "$(BLUE)[INFO]$(NC) Running F5 XC CE cleanup playbook..."
+	@ANSIBLE_STDOUT_CALLBACK=default ANSIBLE_CALLBACK_RESULT_FORMAT=yaml ansible-playbook "$(ANSIBLE_DIR)/cleanup.yml" \
+		-e "ansible_collections_path=$(ANSIBLE_DIR)/collections" \
+		$(if $(REMOVE_HUGEPAGES),-e "remove_hugepages=true",)

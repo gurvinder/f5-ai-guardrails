@@ -1,0 +1,32 @@
+---
+- name: Get StorageClasses
+  kubernetes.core.k8s_info:
+    kind: StorageClass
+  register: storage_classes
+
+- name: Display StorageClasses
+  ansible.builtin.debug:
+    msg: >-
+      {{ item.metadata.name }} (provisioner: {{ item.provisioner }})
+      {{ '[DEFAULT]' if (item.metadata.annotations | default({})).get('storageclass.kubernetes.io/is-default-class', 'false') == 'true' else '' }}
+  loop: "{{ storage_classes.resources }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+
+- name: Identify default StorageClass
+  ansible.builtin.set_fact:
+    default_sc_name: "{{ item.metadata.name }}"
+    default_sc_provisioner: "{{ item.provisioner }}"
+  loop: "{{ storage_classes.resources }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+  when: (item.metadata.annotations | default({})).get('storageclass.kubernetes.io/is-default-class', 'false') == 'true'
+
+- name: Fail if no default StorageClass exists
+  ansible.builtin.fail:
+    msg: "No default StorageClass found. F5 XC CE requires dynamic PVC provisioning."
+  when: default_sc_name is not defined
+
+- name: Confirm dynamic provisioning is available
+  ansible.builtin.debug:
+    msg: "Default StorageClass '{{ default_sc_name }}' (provisioner: {{ default_sc_provisioner }}) supports dynamic PVC provisioning."

@@ -1,0 +1,57 @@
+---
+- name: Check if node already has worker-hp label
+  kubernetes.core.k8s_info:
+    kind: Node
+    name: "{{ ocp_node_name }}"
+  register: target_node
+
+- name: Set label check fact
+  ansible.builtin.set_fact:
+    node_has_hp_label: "{{ ('node-role.kubernetes.io/' + hugepages_role_label) in (target_node.resources[0].metadata.labels | default({})) }}"
+
+- name: Label node with worker-hp role
+  kubernetes.core.k8s:
+    kind: Node
+    name: "{{ ocp_node_name }}"
+    state: present
+    definition:
+      metadata:
+        labels: "{{ {'node-role.kubernetes.io/' + hugepages_role_label: ''} }}"
+  when: not node_has_hp_label
+
+- name: Apply Tuned profile for HugePages
+  kubernetes.core.k8s:
+    state: present
+    src: "{{ role_path }}/files/hugepages-tuned-boottime.yaml"
+
+- name: Apply MachineConfigPool for worker-hp
+  kubernetes.core.k8s:
+    state: present
+    src: "{{ role_path }}/files/hugepages-mcp.yaml"
+
+- name: Verify node labels
+  kubernetes.core.k8s_info:
+    kind: Node
+    name: "{{ ocp_node_name }}"
+  register: labeled_node
+
+- name: Confirm worker-hp label is present
+  ansible.builtin.assert:
+    that:
+      - "('node-role.kubernetes.io/' + hugepages_role_label) in labeled_node.resources[0].metadata.labels"
+    fail_msg: "Label node-role.kubernetes.io/{{ hugepages_role_label }} not found on {{ ocp_node_name }}"
+    success_msg: "Node {{ ocp_node_name }} labeled with worker-hp role"
+
+- name: Check HugePages allocation on node
+  ansible.builtin.debug:
+    msg: >-
+      HugePages capacity: {{ labeled_node.resources[0].status.capacity['hugepages-2Mi'] | default('not yet available') }},
+      Allocatable: {{ labeled_node.resources[0].status.allocatable['hugepages-2Mi'] | default('not yet available') }}
+
+- name: Warn if HugePages not yet allocated
+  ansible.builtin.debug:
+    msg: >-
+      NOTE: HugePages may require a node reboot to take effect.
+      The Tuned profile and MachineConfigPool have been applied.
+      Monitor with: oc get nodes {{ ocp_node_name }} -o jsonpath='{.status.capacity.hugepages-2Mi}'
+  when: (labeled_node.resources[0].status.capacity['hugepages-2Mi'] | default('0')) == '0'

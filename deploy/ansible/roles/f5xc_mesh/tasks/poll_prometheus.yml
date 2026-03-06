@@ -1,0 +1,50 @@
+---
+- name: "Poll {{ poll_attempt }}/{{ poll_max_attempts }} — checking for Prometheus deployment"
+  kubernetes.core.k8s_info:
+    kind: Deployment
+    namespace: "{{ f5xc_namespace }}"
+    name: prometheus
+  register: prom_deploy
+
+- name: Get current ves-system pods
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ f5xc_namespace }}"
+  register: poll_pods
+
+- name: Set prom_found when discovered
+  ansible.builtin.set_fact:
+    prom_found: true
+  when: prom_deploy.resources | length > 0
+
+- name: "Waiting for site approval ({{ poll_attempt }}/{{ poll_max_attempts }})"
+  ansible.builtin.debug:
+    msg: |-
+
+      ══════════════════════════════════════════════════════════════════
+        WAITING FOR SITE APPROVAL — Manual action required
+      ══════════════════════════════════════════════════════════════════
+
+        1. Open https://console.ves.volterra.io
+        2. Navigate to:
+           Multi-Cloud Network Connect → Manage → Site Management → Registrations
+        3. Find site '{{ f5xc_cluster_name }}' and click APPROVE
+
+        Prometheus status : {{ 'FOUND — continuing...' if prom_deploy.resources | length > 0 else 'Not yet deployed (waiting for approval)' }}
+        Current pods      : {{ poll_pods.resources | map(attribute='metadata.name') | list | join(', ') }}
+        Poll attempt      : {{ poll_attempt }} of {{ poll_max_attempts }} (retrying every 30s, ~{{ (poll_max_attempts | int * 30 / 60) | int }} min timeout)
+
+      ══════════════════════════════════════════════════════════════════
+  when: prom_deploy.resources | length == 0
+
+- name: "Prometheus deployment found"
+  ansible.builtin.debug:
+    msg: "Prometheus deployment detected — proceeding with hostPort check."
+  when: prom_deploy.resources | length > 0
+
+- name: Wait before next poll
+  ansible.builtin.pause:
+    seconds: 30
+  when:
+    - prom_deploy.resources | length == 0
+    - (poll_attempt | int) < (poll_max_attempts | int)

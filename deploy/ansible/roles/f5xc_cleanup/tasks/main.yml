@@ -1,0 +1,127 @@
+---
+- name: Check if ves-system namespace exists
+  kubernetes.core.k8s_info:
+    kind: Namespace
+    name: "{{ f5xc_namespace }}"
+  register: ves_ns
+
+- name: Namespace status
+  ansible.builtin.debug:
+    msg: "{{ f5xc_namespace }} namespace {{ 'exists — will be deleted' if ves_ns.resources | length > 0 else 'not found — skipping namespace cleanup' }}"
+
+# --- Cluster-scoped resources (must be deleted before namespace) ---
+
+- name: Delete ClusterRoleBinding — vpm-sa
+  kubernetes.core.k8s:
+    api_version: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    name: vpm-sa
+    state: absent
+  ignore_errors: true
+
+- name: Delete ClusterRoleBinding — ver
+  kubernetes.core.k8s:
+    api_version: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    name: ver
+    state: absent
+  ignore_errors: true
+
+- name: Delete ClusterRole — vpm-cluster-role
+  kubernetes.core.k8s:
+    api_version: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    name: vpm-cluster-role
+    state: absent
+  ignore_errors: true
+
+# --- Namespace deletion (removes all namespace-scoped resources) ---
+
+- name: Delete ves-system namespace
+  kubernetes.core.k8s:
+    kind: Namespace
+    name: "{{ f5xc_namespace }}"
+    state: absent
+    wait: false
+  register: ns_delete
+  until: ns_delete is not failed
+  retries: 5
+  delay: 10
+  when: ves_ns.resources | length > 0
+
+- name: Waiting for namespace termination
+  kubernetes.core.k8s_info:
+    kind: Namespace
+    name: "{{ f5xc_namespace }}"
+  register: ns_check
+  until: ns_check.resources | length == 0
+  retries: 30
+  delay: 10
+  when: ves_ns.resources | length > 0
+
+# --- HugePages resources (optional, controlled by remove_hugepages) ---
+
+- name: Remove HugePages configuration
+  when: remove_hugepages | default(false) | bool
+  block:
+    - name: Delete Tuned profile — hugepages
+      kubernetes.core.k8s:
+        kind: Tuned
+        name: hugepages
+        namespace: openshift-cluster-node-tuning-operator
+        state: absent
+      ignore_errors: true
+
+    - name: Delete MachineConfigPool — worker-hp
+      kubernetes.core.k8s:
+        kind: MachineConfigPool
+        name: worker-hp
+        state: absent
+      ignore_errors: true
+
+    - name: Discover target node for label removal
+      kubernetes.core.k8s_info:
+        kind: Node
+      register: cleanup_nodes
+      when: ocp_node_name | default('') == ''
+
+    - name: Auto-set ocp_node_name for cleanup
+      ansible.builtin.set_fact:
+        ocp_node_name: "{{ cleanup_nodes.resources[0].metadata.name }}"
+      when: ocp_node_name | default('') == ''
+
+    - name: Remove worker-hp label from node
+      kubernetes.core.k8s:
+        kind: Node
+        name: "{{ ocp_node_name }}"
+        state: present
+        definition:
+          metadata:
+            labels: "{{ {'node-role.kubernetes.io/' + hugepages_role_label: None} }}"
+      ignore_errors: true
+
+    - name: HugePages cleanup complete
+      ansible.builtin.debug:
+        msg: >-
+          Removed Tuned profile, MachineConfigPool, and node label.
+          NOTE: A node reboot may be triggered by MachineConfigPool removal.
+
+- name: HugePages resources kept
+  ansible.builtin.debug:
+    msg: "HugePages config (Tuned, MCP, node label) preserved. Pass -e remove_hugepages=true to also remove these."
+  when: not (remove_hugepages | default(false) | bool)
+
+- name: Cleanup summary
+  ansible.builtin.debug:
+    msg: |-
+
+      ══════════════════════════════════════════════════════════════════
+        F5 XC CLEANUP COMPLETE
+      ══════════════════════════════════════════════════════════════════
+
+        Namespace         : {{ f5xc_namespace }} — {{ 'deleted' if ves_ns.resources | length > 0 else 'was not present' }}
+        ClusterRoles      : removed
+        ClusterRoleBindings: removed
+        HugePages config  : {{ 'removed' if (remove_hugepages | default(false) | bool) else 'preserved (use -e remove_hugepages=true)' }}
+
+      ══════════════════════════════════════════════════════════════════

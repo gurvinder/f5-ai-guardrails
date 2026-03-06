@@ -1,0 +1,19 @@
+---
+- name: F5 XC Customer Edge Cleanup
+  hosts: localhost
+  gather_facts: false
+  collections:
+    - kubernetes.core
+
+  pre_tasks:
+    - name: Verify oc/kubectl connectivity
+      kubernetes.core.k8s_cluster_info:
+      register: cluster_info
+
+    - name: Display cluster info
+      ansible.builtin.debug:
+        msg: "Connected to {{ cluster_info.connection.host }}"
+
+  roles:
+    - role: f5xc_cleanup
+      tags: [cleanup]

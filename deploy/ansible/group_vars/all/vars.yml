@@ -1,0 +1,26 @@
+---
+# --- OCP Node Configuration ---
+# Leave empty to auto-discover from the cluster (picks the first node)
+ocp_node_name: ""
+hugepages_role_label: "worker-hp"
+
+# --- F5 XC CE Mesh Configuration ---
+# f5xc_cluster_name and f5xc_token are in secrets.yml (see secrets.yml.example)
+f5xc_namespace: "ves-system"
+f5xc_latitude: "44"
+f5xc_longitude: "-122"
+f5xc_certified_hardware: "k8s-minikube-voltmesh"
+f5xc_maurice_endpoint: "https://register.ves.volterra.io"
+f5xc_maurice_private_endpoint: "https://register-tls.ves.volterra.io"
+
+# --- Manifest source ---
+# Set to "template" to render from Jinja2, or "file" to use existing ce_ocp_gpu-ai.yml
+f5xc_manifest_source: "template"
+
+# --- Timeouts ---
+pod_ready_timeout: 2100
+pvc_bound_timeout: 120
+site_approval_timeout: 600
+
+# --- Prometheus hostPort fix ---
+fix_prometheus_hostport: true

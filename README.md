@@ -71,6 +71,7 @@ The solution is built on:
 - Red Hat OpenShift Container Platform 4.18+
 - Red Hat OpenShift AI 2.16+ (tested with 2.22)
 - Helm CLI
+- Ansible (for F5 XC deployment): `pip install ansible kubernetes`
 
 - Optional: [huggingface-cli](https://huggingface.co/docs/huggingface_hub/guides/cli), [Hugging Face token](https://huggingface.co/settings/tokens), [jq](https://stedolan.github.io/jq/) for example scripts
 
@@ -193,22 +194,46 @@ The 70B model is not required for initial testing. Llama-Guard-3-8B is optional.
    ```
    For the secured vLLM endpoint, use your route and model ID in the same request format.
 
-5. **Next steps**
-   - **Step 2:** [Deployment and Configuration of F5 Distributed Cloud](docs/f5_xc_deployment.md)
-   - **Step 3:** [Security Use Cases and Testing](docs/securing_model_inference_use_cases.md)
+5. **Deploy F5 Distributed Cloud Customer Edge**
+
+   This step deploys the F5 XC CE mesh onto the OpenShift cluster. It configures HugePages, validates storage, applies the CE manifest, and waits for all pods to register and become healthy.
+
+   ```bash
+   # Create the secrets file with your F5 XC site token and site name
+   cp deploy/ansible/group_vars/all/secrets.yml.example \
+      deploy/ansible/group_vars/all/secrets.yml
+
+   # Edit secrets.yml — set f5xc_token and f5xc_cluster_name
+   vim deploy/ansible/group_vars/all/secrets.yml
+
+   # Run the deployment
+   make f5-deploy
+   ```
+
+   > **Manual step required:** During deployment, the playbook will pause and display a banner asking you to approve the site in the F5 XC Console. Navigate to **Multi-Cloud Network Connect → Manage → Site Management → Registrations**, find your site, and click **Approve**. The playbook detects the approval automatically and continues.
+
+6. **Next steps**
+   - [Security Use Cases and Testing](docs/securing_model_inference_use_cases.md)
 
 **Application access:** Get the route with `oc get route -n <NAMESPACE>`, open the URL in a browser, and configure LLM settings (XC URL, model ID, API key) in the web UI.
 
 ### Delete
 
-Remove the quickstart from the cluster:
+Remove the RAG stack:
 
 ```bash
 cd f5-api-security/deploy/helm
 make uninstall NAMESPACE=<NAMESPACE>
 ```
 
-This uninstalls the Helm release and removes pods, services, routes, and the pgvector PVC. To delete the namespace:
+Remove the F5 XC Customer Edge deployment:
+
+```bash
+make f5-clean                        # keeps HugePages config
+make f5-clean REMOVE_HUGEPAGES=true  # also removes HugePages, Tuned, MCP, and node label
+```
+
+To delete the RAG namespace entirely:
 
 ```bash
 oc delete project <NAMESPACE>
@@ -220,11 +245,14 @@ oc delete project <NAMESPACE>
 
   ```bash
   make help             # Show all available commands
-  make install          # Deploy the application
-  make uninstall        # Remove the application
-  make clean            # Clean up all resources including namespace
+  make install          # Deploy the RAG application
+  make uninstall        # Remove the RAG application
+  make clean            # Clean up all RAG resources including namespace
+  make f5-deploy        # Deploy F5 XC Customer Edge mesh (Ansible)
+  make f5-clean         # Remove F5 XC deployment and cluster resources
   make logs             # Show logs for all pods
   make monitor          # Monitor deployment status
+  make status           # Check deployment status
   make validate-config  # Validate configuration values
   ```
 

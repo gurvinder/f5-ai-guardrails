@@ -1,0 +1,40 @@
+---
+- name: Get cluster nodes
+  kubernetes.core.k8s_info:
+    kind: Node
+  register: node_list
+
+- name: Display node status
+  ansible.builtin.debug:
+    msg: "{{ item.metadata.name }} — {{ item.status.conditions | selectattr('type', 'equalto', 'Ready') | map(attribute='status') | first }}"
+  loop: "{{ node_list.resources }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+
+- name: Fail if any node is NotReady
+  ansible.builtin.fail:
+    msg: "Node {{ item.metadata.name }} is not Ready"
+  when: (item.status.conditions | selectattr('type', 'equalto', 'Ready') | map(attribute='status') | first) != "True"
+  loop: "{{ node_list.resources }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+
+- name: Check for non-running pods across all namespaces
+  kubernetes.core.k8s_info:
+    kind: Pod
+    field_selectors:
+      - status.phase!=Running
+      - status.phase!=Succeeded
+  register: bad_pods
+
+- name: Report non-running pods (warning only)
+  ansible.builtin.debug:
+    msg: "WARNING — {{ item.metadata.namespace }}/{{ item.metadata.name }} is {{ item.status.phase }}"
+  loop: "{{ bad_pods.resources }}"
+  loop_control:
+    label: "{{ item.metadata.namespace }}/{{ item.metadata.name }}"
+  when: bad_pods.resources | length > 0
+
+- name: Cluster readiness summary
+  ansible.builtin.debug:
+    msg: "Cluster has {{ node_list.resources | length }} node(s), all Ready. {{ bad_pods.resources | length }} non-running pod(s) found."

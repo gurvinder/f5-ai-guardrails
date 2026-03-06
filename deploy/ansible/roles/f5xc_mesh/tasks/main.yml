@@ -1,0 +1,244 @@
+---
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - f5xc_cluster_name != "CHANGEME"
+      - f5xc_token != "CHANGEME"
+    fail_msg: "Set f5xc_cluster_name and f5xc_token in group_vars/all.yml or via --extra-vars"
+
+- name: Check if ves-system namespace already exists
+  kubernetes.core.k8s_info:
+    kind: Namespace
+    name: "{{ f5xc_namespace }}"
+  register: ves_ns
+
+- name: Namespace status
+  ansible.builtin.debug:
+    msg: "{{ 'ves-system namespace already exists — skipping create' if ves_ns.resources | length > 0 else 'ves-system namespace will be created' }}"
+
+- name: Deploy CE manifest from template
+  kubernetes.core.k8s:
+    state: present
+    template: "{{ role_path }}/templates/ce_k8s.yml.j2"
+  when: f5xc_manifest_source == "template"
+
+- name: Deploy CE manifest from static file
+  kubernetes.core.k8s:
+    state: present
+    src: "{{ playbook_dir }}/../../ce_ocp_gpu-ai.yml"
+  when: f5xc_manifest_source == "file"
+
+- name: CE manifest deployed
+  ansible.builtin.debug:
+    msg: "CE manifest applied (source: {{ f5xc_manifest_source }}). Waiting for PVCs to bind..."
+
+- name: Wait for PVCs to bind
+  kubernetes.core.k8s_info:
+    kind: PersistentVolumeClaim
+    namespace: "{{ f5xc_namespace }}"
+  register: pvc_list
+  until: >-
+    pvc_list.resources | length >= 3 and
+    (pvc_list.resources | map(attribute='status.phase') | select('equalto', 'Bound') | list | length) == (pvc_list.resources | length)
+  retries: "{{ (pvc_bound_timeout | int / 10) | int }}"
+  delay: 10
+
+- name: Display PVC status
+  ansible.builtin.debug:
+    msg: "{{ item.metadata.name }} — {{ item.status.phase }} ({{ item.spec.resources.requests.storage }})"
+  loop: "{{ pvc_list.resources }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+
+- name: Waiting for vp-manager pod
+  ansible.builtin.debug:
+    msg: "PVCs bound. Waiting for vp-manager pod to reach Running state..."
+
+- name: Wait for vp-manager pod to be running
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ f5xc_namespace }}"
+    label_selectors:
+      - "name=vpm"
+  register: vpm_pods
+  until: >-
+    vpm_pods.resources | length > 0 and
+    (vpm_pods.resources[0].status.phase == "Running")
+  retries: "{{ (pod_ready_timeout | int / 10) | int }}"
+  delay: 10
+
+- name: Display vp-manager status
+  ansible.builtin.debug:
+    msg: "vp-manager: {{ vpm_pods.resources[0].status.phase }}"
+
+- name: Registration reminder
+  ansible.builtin.debug:
+    msg: |-
+
+      ══════════════════════════════════════════════════════════════════
+        ACTION REQUIRED — Approve site in F5 XC Console
+      ══════════════════════════════════════════════════════════════════
+
+        1. Open https://console.ves.volterra.io
+        2. Navigate to:
+           Multi-Cloud Network Connect → Manage → Site Management → Registrations
+        3. Find site '{{ f5xc_cluster_name }}' and click APPROVE
+
+        The playbook will poll for site approval (timeout: {{ (site_approval_timeout | int / 60) | int }} minutes).
+
+      ══════════════════════════════════════════════════════════════════
+
+- name: Show current ves-system pods while waiting
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ f5xc_namespace }}"
+  register: current_pods
+
+- name: Current pod inventory
+  ansible.builtin.debug:
+    msg: "{{ item.metadata.name }} — {{ item.status.phase }}"
+  loop: "{{ current_pods.resources }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+
+- name: Set polling variables
+  ansible.builtin.set_fact:
+    poll_max_attempts: "{{ (site_approval_timeout | int / 30) | int }}"
+    prom_found: false
+  when: fix_prometheus_hostport
+
+- name: Poll for Prometheus deployment with status updates
+  ansible.builtin.include_tasks: poll_prometheus.yml
+  loop: "{{ range(1, (poll_max_attempts | int) + 1) | list }}"
+  loop_control:
+    loop_var: poll_attempt
+  when:
+    - fix_prometheus_hostport
+    - not (prom_found | default(false))
+
+- name: Set prom_found fact from poll result
+  ansible.builtin.set_fact:
+    prom_found: "{{ prom_deploy.resources | default([]) | length > 0 }}"
+  when: fix_prometheus_hostport
+
+- name: Prometheus final status
+  ansible.builtin.debug:
+    msg: "{{ 'Prometheus deployment found — checking for hostPort issue' if prom_found else 'Prometheus not found within timeout — site may not be approved yet. Skipping hostPort fix.' }}"
+  when: fix_prometheus_hostport
+
+- name: Fix Prometheus hostPort issue
+  when:
+    - fix_prometheus_hostport
+    - prom_found | default(false)
+  block:
+    - name: Check if Prometheus has hostPort entries
+      ansible.builtin.set_fact:
+        prom_has_hostport: >-
+          {{ prom_deploy.resources[0].spec.template.spec.containers |
+             map(attribute='ports', default=[]) | flatten |
+             selectattr('hostPort', 'defined') | list | length > 0 }}
+
+    - name: Patch Prometheus to remove hostPort bindings
+      ansible.builtin.shell: |
+        oc -n {{ f5xc_namespace }} get deployment prometheus -o json | \
+        python3 -c "
+        import json, sys
+        dep = json.load(sys.stdin)
+        for c in dep['spec']['template']['spec']['containers']:
+            if 'ports' in c:
+                for p in c['ports']:
+                    p.pop('hostPort', None)
+        json.dump(dep, sys.stdout)
+        " | oc -n {{ f5xc_namespace }} replace -f -
+      when: prom_has_hostport | default(false)
+      register: prom_patch
+
+    - name: Prometheus fix result
+      ansible.builtin.debug:
+        msg: "{{ 'Prometheus hostPort entries removed — pod will restart' if prom_patch is changed else 'No hostPort fix needed' }}"
+
+- name: Wait for all expected pods to be running
+  ansible.builtin.debug:
+    msg: "Waiting for etcd, ver, and prometheus pods to reach Running state (up to {{ (pod_ready_timeout | int / 60) | int }} minutes)..."
+
+- name: Wait for etcd-0 to be running
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ f5xc_namespace }}"
+    name: etcd-0
+  register: etcd_pod
+  until: >-
+    etcd_pod.resources | length > 0 and
+    etcd_pod.resources[0].status.phase == "Running"
+  retries: "{{ (pod_ready_timeout | int / 15) | int }}"
+  delay: 15
+
+- name: Wait for ver-0 to be running
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ f5xc_namespace }}"
+    name: ver-0
+  register: ver_pod
+  until: >-
+    ver_pod.resources | length > 0 and
+    ver_pod.resources[0].status.phase == "Running"
+  retries: "{{ (pod_ready_timeout | int / 15) | int }}"
+  delay: 15
+
+- name: Wait for prometheus pod to be running
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ f5xc_namespace }}"
+    label_selectors:
+      - "app=prometheus"
+  register: prom_pod
+  until: >-
+    prom_pod.resources | length > 0 and
+    prom_pod.resources[0].status.phase == "Running"
+  retries: "{{ (pod_ready_timeout | int / 15) | int }}"
+  delay: 15
+  when: prom_found | default(false)
+
+- name: Final pod status in ves-system
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ f5xc_namespace }}"
+  register: all_ves_pods
+
+- name: "===== ves-system pod summary ====="
+  ansible.builtin.debug:
+    msg: >-
+      {{ item.metadata.name }} — {{ item.status.phase }}
+      (ready: {{ item.status.containerStatuses | default([]) | selectattr('ready', 'equalto', true) | list | length }}/{{ item.status.containerStatuses | default([]) | length }},
+      restarts: {{ item.status.containerStatuses | default([]) | map(attribute='restartCount') | sum }})
+  loop: "{{ all_ves_pods.resources }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+
+- name: Validate all pods are running
+  ansible.builtin.assert:
+    that:
+      - item.status.phase == "Running"
+    fail_msg: "Pod {{ item.metadata.name }} is {{ item.status.phase }} — expected Running"
+    quiet: true
+  loop: "{{ all_ves_pods.resources }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+
+- name: Validate all containers are ready
+  ansible.builtin.assert:
+    that:
+      - (item.status.containerStatuses | default([]) | selectattr('ready', 'equalto', false) | list | length) == 0
+    fail_msg: >-
+      Pod {{ item.metadata.name }} has unready containers:
+      {{ item.status.containerStatuses | default([]) | rejectattr('ready', 'equalto', true) | map(attribute='name') | list | join(', ') }}
+    quiet: true
+  loop: "{{ all_ves_pods.resources }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+
+- name: Deployment complete
+  ansible.builtin.debug:
+    msg: >-
+      F5 XC CE deployment successful.
+      All {{ all_ves_pods.resources | length }} pods in ves-system are Running with all containers ready.

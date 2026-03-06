@@ -1,0 +1,48 @@
+---
+- name: F5 XC Customer Edge Deployment on OpenShift
+  hosts: localhost
+  gather_facts: false
+  collections:
+    - kubernetes.core
+
+  pre_tasks:
+    - name: Verify oc/kubectl connectivity
+      kubernetes.core.k8s_cluster_info:
+      register: cluster_info
+
+    - name: Display cluster info
+      ansible.builtin.debug:
+        msg: "Connected to {{ cluster_info.connection.host }}"
+
+    # --- Auto-discover ocp_node_name ---
+    - name: Discover cluster nodes
+      kubernetes.core.k8s_info:
+        kind: Node
+      register: discovered_nodes
+      when: ocp_node_name | default('') == ''
+
+    - name: Auto-set ocp_node_name from first node
+      ansible.builtin.set_fact:
+        ocp_node_name: "{{ discovered_nodes.resources[0].metadata.name }}"
+      when: ocp_node_name | default('') == ''
+
+    - name: Display discovered node
+      ansible.builtin.debug:
+        msg: "Auto-discovered node: {{ ocp_node_name }}"
+
+    - name: Display target node
+      ansible.builtin.debug:
+        msg: "Target node: {{ ocp_node_name }}"
+
+  roles:
+    - role: ocp_preflight
+      tags: [preflight, step1]
+
+    - role: hugepages
+      tags: [hugepages, step1]
+
+    - role: storage_validation
+      tags: [storage, step1]
+
+    - role: f5xc_mesh
+      tags: [mesh, step2]
