@@ -48,31 +48,7 @@ The solution is built on:
 
 ### Architecture
 
-```
-                         ┌──────────────────────────────────────────────────┐
-                         │               Red Hat OpenShift AI               │
-                         │                                                  │
-  ┌────────┐   HTTPS     │  ┌──────────────┐    ┌────────────┐             │
-  │ Client ├────────────►│  │  F5 AI       │    │ LlamaStack │             │
-  │ (Chat  │             │  │  Guardrails  ├───►│  (RAG +    ├──┐         │
-  │  UI)   │◄────────────│  │  (Moderator) │    │  Routing)  │  │         │
-  └────────┘   Response  │  └──────┬───────┘    └────────────┘  │         │
-               (pass/    │         │                             │         │
-                block)   │         │ scan                        ▼         │
-                         │  ┌──────▼───────┐    ┌────────────────────┐    │
-                         │  │   Scanner    │    │   vLLM (GPU)       │    │
-                         │  │  (Policy     │    │   Llama-3.2-1B     │    │
-                         │  │   Engine)    │    │   Instruct         │    │
-                         │  └──────────────┘    └────────────────────┘    │
-                         │                                                  │
-                         │  ┌──────────────┐    ┌────────────────────┐    │
-                         │  │  Moderator   │    │   PostgreSQL       │    │
-                         │  │  UI (:5500)  │    │   (Settings +      │    │
-                         │  │  Auth (:8080)│    │    Policies DB)    │    │
-                         │  └──────────────┘    └────────────────────┘    │
-                         │                                                  │
-                         └──────────────────────────────────────────────────┘
-```
+![RAG Architecture with F5 AI Guardrails](docs/images/rag-architecture-f5ai.png)
 
 **Data flow:** The client sends a chat request to the F5 AI Guardrails Moderator endpoint. The Moderator passes the prompt through the Scanner, which evaluates it against active policies (prompt injection, PII, toxicity, topic). If the prompt passes, it is forwarded to LlamaStack, which routes it to the vLLM model. The model response is then scanned again on the way back. If either the prompt or response violates a policy, the request is blocked and the client receives an error.
 
