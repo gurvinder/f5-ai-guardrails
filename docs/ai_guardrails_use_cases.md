@@ -9,11 +9,9 @@ This guide walks you through configuring **F5 AI Guardrails** scanner policies t
 ## Table of contents
 
 - [Prerequisites](#prerequisites)
-- [Step 0: Verify endpoint access and create an API token](#step-0-verify-endpoint-access-and-create-an-api-token)
+- [Step 0: Configure AI Guardrails](#step-0-configure-ai-guardrails)
 - [Lab 1: Prompt and response scanning](#lab-1-prompt-and-response-scanning)
-  - [Task 1: Create a project](#task-1-create-a-project)
-  - [Task 2: Real-time protection for prompts and responses](#task-2-real-time-protection-for-prompts-and-responses)
-  - [Task 2.1: Add additional guardrails](#task-21-add-additional-guardrails)
+  - [Task 1: Add scanners](#task-1-add-scanners)
   - [Observing blocked events](#observing-blocked-events)
 - [Lab 2: Creating custom guardrails](#lab-2-creating-custom-guardrails)
   - [Task 1: Create a GenAI guardrail](#task-1-create-a-genai-guardrail)
@@ -59,21 +57,38 @@ The Moderator UI left sidebar provides access to:
 
 ---
 
-## Step 0: Verify endpoint access and create an API token
+## Step 0: Configure AI Guardrails
 
-### Create an API token
+> **Reference:** [F5 AI Runtime — Class 5: Projects](https://clouddocs.f5.com/training/community/genai/html/class5/class5.html#projects)
+
+### Create a project and connect a model
 
 1. Log into the Moderator UI at `https://<your-hostname>` with admin credentials
-2. Navigate to **API Tokens** in the left sidebar
-3. Click **Create Token**, name it (e.g., `quickstart-demo`), and copy the token immediately — it is shown only once
+
+2. Navigate to **Projects** and click **Create Project**. Ensure you select the **App** project type.
+
+3. Configure a new model connection:
+   1. Select **OpenAI Compatible**
+   2. Click **Connect Model** and fill in:
+      - **Display name:** `llamastack`
+      - **Model name:** `llama-3-2-1b-instruct-quantized/RedHatAI/Llama-3.2-1B-Instruct-quantized.w8a8`
+      - **URL:** `http://llamastack-http-f5-ai-security.apps.ai-guardrails.bd.f5.com/v1/openai/v1/chat/completions`
+      - **API key:** `dummy`
+
+4. Click **Generate API Key** to create an API token for this app
+
+> **Important:** Copy and save the API token immediately — it is required when integrating F5 AI Guardrails with your GenAI apps and agents. You will **not** be able to retrieve this token again once you leave this screen.
+
+5. Click **Finish** to complete the project creation
 
 ### Verify endpoint access
 
 Set up environment variables for the remaining tasks:
 
 ```bash
-export GUARDRAILS_URL="https://<your-hostname>/openai/llamastack/chat/completions"
+export CONNECTION_NAME="<your-connection-name>"
 export API_TOKEN="<your-api-token>"
+export GUARDRAILS_URL="https://<your-hostname>/openai/${CONNECTION_NAME}/chat/completions"
 export MODEL_ID="llama-3-2-1b-instruct-quantized/RedHatAI/Llama-3.2-1B-Instruct-quantized.w8a8"
 ```
 
@@ -102,7 +117,7 @@ streamlit run app.py
 ```
 
 Open **http://localhost:8501** and configure:
-1. **Endpoint URL** — enter `https://<your-hostname>/openai/llamastack` in the sidebar
+1. **Endpoint URL** — enter `https://<your-hostname>/openai/<your-connection-name>` in the sidebar (e.g., `https://<your-hostname>/openai/llamastack` if you used `llamastack` as the display name)
 2. **API Token** — enter the token you created above
 
 The app auto-discovers available models. Select the model and send a test message to verify connectivity. When a scanner blocks a request, the chat app displays a **"Blocked Message Attempt"** indicator instead of a response.
@@ -113,49 +128,13 @@ The app auto-discovers available models. Select the model and send a test messag
 
 > **Reference:** [F5 AI Runtime — Lab 1](https://clouddocs.f5.com/training/community/ai/html/class2/labs/lab1.html)
 
-AI applications face prompt attacks such as jailbreaks, prompt injections, and data exfiltration attempts that risk unauthorized access, data breaches, and compromised AI model integrity. This lab demonstrates how to create a project, add guardrail packages, and observe real-time prompt and response scanning.
+AI applications face prompt attacks such as jailbreaks, prompt injections, and data exfiltration attempts that risk unauthorized access, data breaches, and compromised AI model integrity. This lab demonstrates how to add guardrail packages and observe real-time prompt and response scanning.
 
-### Task 1: Create a project
+> **Note:** Project creation and model connection were completed in [Step 0](#step-0-configure-ai-guardrails).
 
-A **project** groups guardrail policies together and associates them with a specific LLM connection. Each project can have its own set of enabled scanners and modes.
+### Task 1: Add scanners
 
-1. After logging in, you land on the **Dashboard**
-
-   ![Dashboard](images/lab1-dashboard.png)
-
-2. Click **Projects** on the left-hand menu
-
-3. In the create project dialog, select the **Chat** radio button
-
-4. Click **Create**
-
-   ![Create Project](images/lab1-create-project.png)
-
-5. Enter a project name (e.g., your first initial and last name)
-
-6. Select the model from the **Model** dropdown (e.g., `llama-3-2-1b-instruct-quantized/RedHatAI/Llama-3.2-1B-Instruct-quantized.w8a8`)
-
-7. Complete the project creation
-
-### Task 2: Real-time protection for prompts and responses
-
-With the project created, test the built-in Chat interface before adding any guardrails:
-
-1. Click **Chat** in the left navigation panel
-
-   ![Chat Interface](images/lab1-chat.png)
-
-2. Change the project from **Global** to your newly created project name
-
-3. Enter a safe prompt such as: *"Explain the differences between supervised and unsupervised learning?"*
-
-4. Click the send button — the model should respond normally
-
-At this point, no guardrails are active. The model will respond to any prompt, including malicious ones.
-
-### Task 2.1: Add additional guardrails
-
-Now add the OOTB guardrail packages to protect the project:
+Add the OOTB scanner packages to your project:
 
 1. Navigate to your project and click the **Add Guardrails** button
 
