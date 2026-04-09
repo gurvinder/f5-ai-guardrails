@@ -14,7 +14,10 @@ Protect AI-powered applications against prompt injection, sensitive data leakage
   - [Prerequisites](#prerequisites)
   - [Supported models](#supported-models)
   - [Installation steps](#installation-steps)
-  - [What you can protect against](#what-you-can-protect-against)
+- [AI security capabilities](#ai-security-capabilities)
+  - [Out-of-the-box scanner packages](#out-of-the-box-scanner-packages)
+  - [Custom scanners](#custom-scanners)
+  - [Enforcement modes](#enforcement-modes)
   - [Hands-on labs](#hands-on-labs)
 - [Delete](#delete)
 - [References](#references)
@@ -255,14 +258,14 @@ The `start.sh` script handles virtual environment setup (`uv sync`), dependency 
 
 Opens at **http://localhost:8501**.
 
-**Configuring F5 AI Guardrails (optional):**
+**Configuring F5 AI Guardrails:**
 
-To route chat through F5 AI Guardrails for policy scanning, go to **Settings** in the app and configure:
+After completing the [AI Guardrails Use Case Guide](docs/ai_guardrails_use_cases.md) (Step 0: Configure AI Guardrails), you will have a Moderator endpoint and API token. To route chat through F5 AI Guardrails for policy scanning, go to **Settings** in the app and configure:
 
 | Field | Value |
 |-------|-------|
-| **Endpoint URL** | `https://<MODERATOR_HOSTNAME>/openai/llamastack` |
-| **API Token** | Bearer token from the Moderator UI (**API tokens** page) |
+| **Endpoint URL** | `https://<MODERATOR_HOSTNAME>/openai/<connection-name>` |
+| **API Token** | Bearer token created in the Moderator UI (**API tokens** page) |
 
 When both fields are set, chat requests are routed through the guardrail proxy. Models and vector databases are always fetched from the direct LlamaStack endpoint.
 
@@ -274,30 +277,47 @@ When both fields are set, chat requests are routed through the guardrail proxy. 
 - **RAG** — Upload documents, create vector database collections, and query with retrieval-augmented generation
 - **Direct/Guardrail modes** — Chat directly with LlamaStack or route through F5 AI Guardrails for prompt injection, PII, toxicity, and topic enforcement
 
-### What you can protect against
+## AI security capabilities
 
-Once deployed, F5 AI Guardrails provides defense-in-depth across multiple AI threat categories. The table below highlights the key protection capabilities — each can be tested interactively using the included labs.
+Once deployed, F5 AI Guardrails provides defense-in-depth across multiple AI threat categories. Each protection can be tested interactively through the included hands-on labs.
 
-| Threat Category | What it catches | Scanner Type |
-|-----------------|----------------|--------------|
-| **Prompt Injection & Jailbreak** | Instruction-override attacks, DAN prompts, system prompt extraction, obfuscation | OOTB — Prompt Injection package |
-| **PII & Data Leakage** | SSNs, credit cards, emails, phone numbers, data exfiltration requests | OOTB — PII package |
-| **EU AI Act Compliance** | Subliminal manipulation, biometric surveillance, emotion recognition in employment | OOTB — EU AI Act package |
-| **Restricted Topics** | Unauthorized financial advice, medical diagnosis, legal guidance | OOTB — Restricted Topics package |
-| **Custom Business Policies** | Organization-specific content (e.g., internal financial forecasts, competitor mentions) | Custom — GenAI scanner |
-| **Confidential Terms** | Project code names, internal identifiers, classified terminology | Custom — Keyword scanner |
-| **Structured Data Patterns** | Employee IDs, internal account numbers, custom PII formats | Custom — RegEx scanner |
+### Out-of-the-box scanner packages
 
-Each scanner operates in one of three modes: **Block** (reject the request), **Audit** (flag for review), or **Redact** (mask sensitive data and continue).
+| Package | What it catches | Scope |
+|---------|----------------|-------|
+| **Prompt Injection** | Instruction-override attacks, DAN prompts, system prompt extraction, obfuscation | Prompts |
+| **PII** | SSNs, credit cards, emails, phone numbers, data exfiltration requests | Prompts & Responses |
+| **EU AI Act** | Subliminal manipulation, biometric surveillance, emotion recognition in employment | Prompts & Responses |
+| **Restricted Topics** | Unauthorized financial advice, medical diagnosis, legal guidance | Prompts |
+
+### Custom scanners
+
+| Type | How it works | Example use case |
+|------|-------------|------------------|
+| **GenAI** | AI-driven analysis of intent and context via natural-language description | Internal financial forecasts, competitor mentions |
+| **Keyword** | Matches specific words or strings | Confidential project names, classified terminology |
+| **RegEx** | Matches regular expression patterns | Employee IDs, internal account numbers |
+
+### Enforcement modes
+
+Each scanner operates in one of three modes:
+
+| Mode | Behavior | When to use |
+|------|----------|-------------|
+| **Block** | Reject the request — prompt never reaches the LLM | Production enforcement |
+| **Audit** | Allow the request, flag it for review | Initial rollout and tuning |
+| **Redact** | Mask sensitive data and continue the conversation | PII protection without interrupting workflow |
 
 ### Hands-on labs
 
-The **[AI Guardrails Use Case Guide](docs/ai_guardrails_use_cases.md)** provides step-by-step labs to configure, test, and observe these protections in action:
+The **[AI Guardrails Use Case Guide](docs/ai_guardrails_use_cases.md)** provides step-by-step labs to configure, test, and observe these protections:
 
-- **Lab 1 — Prompt and Response Scanning:** Add OOTB scanner packages, test safe and unsafe prompts, and observe blocked events in the Logs dashboard
-- **Lab 2 — Creating Custom Scanners:** Build GenAI, Keyword, and RegEx scanners tailored to your organization's policies, then verify they block matching content
+| Lab | What you will do |
+|-----|-----------------|
+| **Lab 1 — Prompt and Response Scanning** | Add OOTB scanner packages, test safe and unsafe prompts, observe blocked events in the Logs dashboard |
+| **Lab 2 — Creating Custom Scanners** | Build GenAI, Keyword, and RegEx scanners tailored to your organization, verify they block matching content |
 
-The labs use both the Streamlit chat app and the Moderator UI, with optional `curl` commands for scripted testing. The use case guide is updated as new scanner capabilities are released.
+The labs use the Streamlit chat app and the Moderator UI, with optional `curl` commands for scripted testing. The use case guide is updated as new scanner capabilities are released.
 
 ## Delete
 
