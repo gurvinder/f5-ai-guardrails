@@ -15,8 +15,8 @@ Protect AI-powered applications against prompt injection, sensitive data leakage
   - [Supported models](#supported-models)
   - [Installation steps](#installation-steps)
 - [AI security capabilities](#ai-security-capabilities)
-  - [Out-of-the-box scanner packages](#out-of-the-box-scanner-packages)
-  - [Custom scanners](#custom-scanners)
+  - [Out-of-the-box guardrail packages](#out-of-the-box-guardrail-packages)
+  - [Custom guardrails](#custom-guardrails)
   - [Enforcement modes](#enforcement-modes)
   - [Hands-on labs](#hands-on-labs)
 - [Delete](#delete)
@@ -37,7 +37,7 @@ While the included demo content targets financial services, the same architectur
 This quickstart allows you to explore AI security capabilities by:
 
 - Querying financial documents through a RAG-powered chat assistant and seeing grounded, context-aware answers
-- Simulating prompt injection attacks that attempt to override system instructions, then enabling a scanner policy to block them
+- Simulating prompt injection attacks that attempt to override system instructions, then enabling a guardrail policy to block them
 - Triggering responses that contain sensitive PII (SSNs, credit card numbers), then enabling PII detection to block or redact them
 - Eliciting toxic or harmful content from the model, then enabling toxicity filtering to prevent it
 - Asking off-topic questions outside the approved business domain, then enabling topic restriction to enforce boundaries
@@ -55,18 +55,18 @@ The solution is built on:
 
 ![RAG Architecture with F5 AI Guardrails](docs/images/rag-architecture-f5ai.png)
 
-**Data flow:** The client sends a chat request to the F5 AI Guardrails Moderator endpoint. The Moderator passes the prompt through the Scanner, which evaluates it against active policies (prompt injection, PII, toxicity, topic). If the prompt passes, it is forwarded to LlamaStack, which routes it to the vLLM model. The model response is then scanned again on the way back. If either the prompt or response violates a policy, the request is blocked and the client receives an error.
+**Data flow:** The client sends a chat request to the F5 AI Guardrails Moderator endpoint. The Moderator passes the prompt through the Guardrails engine, which evaluates it against active policies (prompt injection, PII, toxicity, topic). If the prompt passes, it is forwarded to LlamaStack, which routes it to the vLLM model. The model response is then scanned again on the way back. If either the prompt or response violates a policy, the request is blocked and the client receives an error.
 
 | Layer/Component | Technology | Purpose |
 |-----------------|------------|---------|
 | **Orchestration** | OpenShift AI | Container orchestration and GPU acceleration |
-| **AI Security** | F5 AI Guardrails (Moderator + Scanner) | Prompt/response inspection, policy enforcement |
+| **AI Security** | F5 AI Guardrails (Moderator + Guardrails) | Prompt/response inspection, policy enforcement |
 | **Framework** | LLaMA Stack | AI application building blocks, OpenAI-compatible API |
 | **UI Layer** | Streamlit | Chat interface for interactive demos |
 | **LLM** | Llama-3.2-1B-Instruct (quantized) | Generates contextual responses |
 | **Embedding** | all-MiniLM-L6-v2 | Text to vector embeddings |
 | **Vector DB** | PostgreSQL + PGVector | Stores embeddings and semantic search |
-| **Policy Engine** | Calypso AI Scanner | Executes scan policies (injection, PII, toxicity, topic) |
+| **Policy Engine** | Calypso AI Guardrails | Executes guardrail policies (injection, PII, toxicity, topic) |
 | **Red Team** | Calypso AI Red Team | Adversarial testing and vulnerability assessment |
 | **Database** | PostgreSQL | Stores settings, policies, and scan results |
 | **Workflow** | Prefect | Orchestrates scan and red-team jobs |
@@ -199,10 +199,9 @@ This guide covers:
 
 ```bash
 # F5 AI Guardrails components
-oc get pods -n cai-moderator    # cai-moderator + postgres: Running
-oc get pods -n cai-scanner      # cai-scanner + model pod: Running
-oc get pods -n cai-redteam      # cai-redteam-worker + model pod: Running
-oc get pods -n prefect           # prefect-server + prefect-worker: Running
+oc get pods -n cai-moderator        # cai-moderator + postgres: Running
+oc get pods -n f5-ai-sec-inference  # inference (kubeai) + model pods: Running
+oc get pods -n prefect              # prefect-server + prefect-worker: Running
 
 # Moderator UI
 echo "https://$(oc get route cai-moderator-ui -n cai-moderator -o jsonpath='{.spec.host}')"
@@ -281,7 +280,7 @@ When both fields are set, chat requests are routed through the guardrail proxy. 
 
 Once deployed, F5 AI Guardrails provides defense-in-depth across multiple AI threat categories. Each protection can be tested interactively through the included hands-on labs.
 
-### Out-of-the-box scanner packages
+### Out-of-the-box guardrail packages
 
 | Package | What it catches | Scope |
 |---------|----------------|-------|
@@ -294,7 +293,7 @@ Once deployed, F5 AI Guardrails provides defense-in-depth across multiple AI thr
 
 ![Prompt Injection Blocked](docs/images/lab1-task1-chat-prompt-injection_new.png)
 
-### Custom scanners
+### Custom guardrails
 
 | Type | How it works | Example use case |
 |------|-------------|------------------|
@@ -302,13 +301,13 @@ Once deployed, F5 AI Guardrails provides defense-in-depth across multiple AI thr
 | **Keyword** | Matches specific words or strings | Confidential project names, classified terminology |
 | **RegEx** | Matches regular expression patterns | Employee IDs, internal account numbers |
 
-**Example: Same prompt allowed before custom scanner, blocked after**
+**Example: Same prompt allowed before custom guardrail, blocked after**
 
-![Before and After Custom Scanner](docs/images/lab2-task1-before-after-scanner_new.png)
+![Before and After Custom Guardrail](docs/images/lab2-task1-before-after-scanner_new.png)
 
 ### Enforcement modes
 
-Each scanner operates in one of three modes:
+Each guardrail operates in one of three modes:
 
 | Mode | Behavior | When to use |
 |------|----------|-------------|
@@ -316,9 +315,9 @@ Each scanner operates in one of three modes:
 | **Audit** | Allow the request, flag it for review | Initial rollout and tuning |
 | **Redact** | Mask sensitive data and continue the conversation | PII protection without interrupting workflow |
 
-**Example: Scanner details in the Logs UI — full visibility into which scanners fired**
+**Example: Guardrail details in the Logs UI — full visibility into which guardrails fired**
 
-![Scanner Details Log](docs/images/lab1-task1-log-details_new.png)
+![Guardrail Details Log](docs/images/lab1-task1-log-details_new.png)
 
 ### Hands-on labs
 
@@ -326,10 +325,10 @@ The **[AI Guardrails Use Case Guide](docs/ai_guardrails_use_cases.md)** provides
 
 | Lab | What you will do |
 |-----|-----------------|
-| **Lab 1 — Prompt and Response Scanning** | Add OOTB scanner packages, test safe and unsafe prompts, observe blocked events in the Logs dashboard |
-| **Lab 2 — Creating Custom Scanners** | Build GenAI, Keyword, and RegEx scanners tailored to your organization, verify they block matching content |
+| **Lab 1 — Prompt and Response Scanning** | Add OOTB guardrail packages, test safe and unsafe prompts, observe blocked events in the Logs dashboard |
+| **Lab 2 — Creating Custom Guardrails** | Build GenAI, Keyword, and RegEx guardrails tailored to your organization, verify they block matching content |
 
-The labs use the Streamlit chat app and the Moderator UI, with optional `curl` commands for scripted testing. The use case guide is updated as new scanner capabilities are released.
+The labs use the Streamlit chat app and the Moderator UI, with optional `curl` commands for scripted testing. The use case guide is updated as new guardrail capabilities are released.
 
 ## Delete
 
@@ -348,10 +347,10 @@ oc delete securityoperator security-operator-demo -n cai-moderator
 
 # Delete the operator subscription and CSV
 oc delete subscription f5-ai-security-operator -n f5-ai-sec
-oc delete csv f5-ai-security-operator.v0.4.3 -n f5-ai-sec
+oc delete csv f5-ai-security-operator.v0.7.0 -n f5-ai-sec
 
 # Delete namespaces
-oc delete project f5-ai-sec cai-moderator cai-scanner cai-redteam prefect
+oc delete project f5-ai-sec cai-moderator f5-ai-sec-inference prefect
 ```
 
 To delete the RAG namespace entirely:
