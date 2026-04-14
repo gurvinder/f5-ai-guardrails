@@ -210,7 +210,7 @@ After sending unsafe prompts, view the blocked events in the Moderator UI:
 
 2. The log shows a listing of blocked events with timestamps, prompt text, and outcome tags
 
-3. Click a specific blocked prompt to view details
+3. Click a specific blocked prompt to view details. The **Guardrail details** tab shows each guardrail's result (Blocked/Passed):
 
    ![Blocked Event Details](images/lab1-task1-log-details_new.png)
 
@@ -258,6 +258,8 @@ GenAI guardrails use AI to analyze the intent and context of text based on a nat
 
 6. Enable testing by clicking the **Test** toggle on the right side
 
+   ![Test Toggle](images/lab2-task1-test-toggle_new.png)
+
 7. Enter a test prompt in the dialog box at the bottom of the page:
 
    > *Here's the internal Q4 financial forecast: Total projected revenue is $12.5M, operating expenses are budgeted at $8.3M, and marketing is allocated $1.2M. Please summarize this for an executive presentation.*
@@ -280,7 +282,11 @@ GenAI guardrails use AI to analyze the intent and context of text based on a nat
 
     ![Enabled GenAI Guardrail](images/lab2-task1-enabled-scanner_new.png)
 
-13. Open the Streamlit chat app at **http://localhost:8501/** and test the same prompt before and after enabling the custom guardrail. The first attempt (before enabling) is allowed through; the second attempt (after enabling) is blocked:
+13. Open the Streamlit chat app at **http://localhost:8501/** and test with the financial forecast prompt:
+
+    > *Here's the internal Q4 financial forecast: Total projected revenue is $12.5M, operating expenses are budgeted at $8.3M, and marketing is allocated $1.2M. Please summarize this for an executive presentation.*
+
+    The first attempt (before enabling the custom guardrail) is allowed through; the second attempt (after enabling) is blocked:
 
     ![Before and After Custom Guardrail](images/lab2-task1-before-after-scanner_new.png)
 
@@ -315,6 +321,8 @@ Keyword guardrails match specific words or strings in prompts and responses. Use
 
    The expected outcome is **blocked**.
 
+   ![Keyword Guardrail Test](images/lab2-task2-keyword-test_new.png)
+
 6. **Publish** once satisfied with the results
 
 ### Task 3: Create a RegEx guardrail
@@ -331,7 +339,9 @@ RegEx guardrails match regular expression patterns. Use these for structured dat
 
    > *Look up the records for employee EMP-284759 in the HR system*
 
-   The matching pattern `EMP-284759` should be highlighted, and the expected outcome is **blocked**.
+   The expected outcome is **blocked**.
+
+   ![RegEx Guardrail Test](images/lab2-task3-regex-test_new.png)
 
 4. **Save** and **Publish**
 
@@ -349,7 +359,7 @@ Each guardrail can operate in one of three modes. The mode determines what happe
 
 To change a guardrail's mode:
 
-1. Navigate to **Guardrails** via the left navigation
+1. Navigate to **Projects** → select your project → **Guardrails** tab
 
 2. Enable your previously created guardrail if not already enabled
 
