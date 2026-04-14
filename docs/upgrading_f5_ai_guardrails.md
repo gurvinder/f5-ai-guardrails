@@ -90,6 +90,12 @@ spec:
 spec:
   inference:
     enabled: true
+    values:
+      inference:
+        guardrails:
+          enabled: true
+        redteam:
+          enabled: true
 ```
 
 ---
@@ -216,6 +222,12 @@ metadata:
 spec:
   inference:
     enabled: true
+    values:
+      inference:
+        guardrails:
+          enabled: true
+        redteam:
+          enabled: true
   jobManager:
     enabled: true
   moderator:

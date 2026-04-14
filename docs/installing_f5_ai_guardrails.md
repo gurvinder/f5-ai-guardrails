@@ -180,6 +180,12 @@ spec:
         CAI_MODERATOR_DEFAULT_LICENSE: "<VALID_LICENSE_FROM_F5>"
   inference:
     enabled: true
+    values:
+      inference:
+        guardrails:
+          enabled: true
+        redteam:
+          enabled: true
 ```
 
 > **Important:**
