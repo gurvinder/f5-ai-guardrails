@@ -144,6 +144,10 @@ oc -n f5-ai-sec get crd | grep ai.security.f5.com
 
 ### 2.3 Create SecurityOperator custom resource
 
+Navigate to **Installed Operators** → **F5 AI Security Operator** → **Security Operator** tab → **Create SecurityOperator**.
+
+![Create SecurityOperator](images/operator-create-securityoperator.png)
+
 Apply the following CR. Customize the values marked with `< >`:
 
 ```yaml
