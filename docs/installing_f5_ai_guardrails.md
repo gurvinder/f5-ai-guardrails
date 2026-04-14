@@ -122,6 +122,8 @@ oc create secret docker-registry regcred \
 2. Select **stable** channel, version **0.7.0**
 3. Install into namespace `f5-ai-sec`
 
+![F5 AI Security Operator — stable channel, v0.7.0](images/operator-install-stable.png)
+
 **Verification:**
 
 ```bash
