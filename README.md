@@ -234,9 +234,7 @@ After completing the [AI Guardrails Use Case Guide](docs/ai_guardrails_use_cases
 
 When both fields are set, chat requests are routed through the guardrail proxy. Models and vector databases are always fetched from the direct LlamaStack endpoint.
 
-**Persistence (cluster / refresh):** Settings are saved to a small JSON file. Default path is `~/.config/...` locally; the Helm chart sets `F5_GUARDRAILS_STATE_FILE=/data/guardrails_state.json` with a `/data` `emptyDir` (swap for a PVC if the pod is replaced). You can also seed `F5_GUARDRAIL_URL` / `F5_GUARDRAIL_API_TOKEN` from a Secret; each field uses the file first, then the env if empty. Prefer a single UI replica for file-backed state.
-
-> **Note:** The `pyproject.toml` uses `__LLAMASTACK_VERSION_`_ as a placeholder that is normally substituted during container builds (see `Containerfile`). For local development, you must replace it manually with the target version (currently `0.2.23`). Do not commit this change — it will break the container build pipeline.
+> **Note:** The `pyproject.toml` uses `__LLAMASTACK_VERSION__` as a placeholder that is normally substituted during container builds (see `Containerfile`). For local development, you must replace it manually with the target version (currently `0.6.0`). Do not commit this change — it will break the container build pipeline.
 
 **Features:**
 

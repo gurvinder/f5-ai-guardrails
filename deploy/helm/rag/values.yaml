@@ -155,7 +155,7 @@ pgvector:
 
 llama-stack:
   image:
-    tag: 0.2.23  # Match frontend client version (was 0.2.22)
+    tag: 0.6.0  # Match frontend client version
 
 
 # Suggested Questions Configuration (Optional)

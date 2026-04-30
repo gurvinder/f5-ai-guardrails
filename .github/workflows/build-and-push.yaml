@@ -40,4 +40,4 @@ jobs:
             quay.io/rh-ai-quickstart/f5-ai-guardrails:${{ steps.version.outputs.f5_tag }}
             quay.io/rh-ai-quickstart/f5-ai-guardrails:latest
           build-args: |
-            LLAMASTACK_VERSION=0.2.23
+            LLAMASTACK_VERSION=0.6.0

@@ -3,11 +3,11 @@
 
 FROM python:3.12-slim
 
-ARG LLAMASTACK_VERSION=0.2.23
+ARG LLAMASTACK_VERSION=0.6.0
 WORKDIR /app
 COPY . /app/
 
-# LLAMASTACK_VERSION defaults to 0.2.23 but can be overridden with --build-arg LLAMASTACK_VERSION=<version>
+# LLAMASTACK_VERSION defaults to 0.6.0 but can be overridden with --build-arg LLAMASTACK_VERSION=<version>
 RUN echo "Using LlamaStack version: $LLAMASTACK_VERSION"
 
 # Replace __LLAMASTACK_VERSION__ with actual LlamaStack library version in pyproject.toml
