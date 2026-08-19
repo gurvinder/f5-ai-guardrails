@@ -1,0 +1,504 @@
+# yaml-language-server: $schema=quickstart-manifest.schema.json
+
+apiVersion: quickstart.redhat.com/v1
+kind: Quickstart
+
+metadata:
+  name: f5-ai-guardrails
+  displayName: "F5 AI Guardrails"
+  shortDescription: "RAG chatbot on OpenShift AI secured with F5 AI Guardrails for prompt injection, PII, toxicity, and topic enforcement."
+  longDescription: |
+    This quickstart deploys a Retrieval-Augmented Generation (RAG) chatbot powered by
+    LlamaStack and vLLM on OpenShift AI, secured end-to-end with F5 AI Guardrails.
+
+    F5 AI Guardrails inspects every prompt and response in real time, enforcing policies
+    for prompt injection defense, PII redaction, toxicity filtering, and topic restriction.
+    The platform includes a Moderator UI for policy management, audit logging, and
+    red-teaming capabilities to continuously test guardrail effectiveness.
+
+    The deployment includes pgvector for vector storage, LlamaStack for RAG orchestration,
+    vLLM for GPU-accelerated LLM serving, and the full F5 AI Security operator stack
+    spanning five namespaces with OLM-managed lifecycle.
+  version: "1.0.0"
+  repository: "https://github.com/rh-ai-quickstart/f5-ai-guardrails"
+  maintainer:
+    name: "Red Hat AI Quickstarts Team"
+    email: "ai-quickstarts@redhat.com"
+  license: "Apache-2.0"
+  lastUpdated: "2026-08-19T00:00:00Z"
+
+classification:
+  industries:
+    - "Financial Services"
+    - "Healthcare"
+    - "Government"
+    - "Any industry requiring AI security compliance"
+  useCases:
+    - "AI Security & Compliance"
+    - "Retrieval-Augmented Generation (RAG)"
+    - "Prompt Injection Defense"
+    - "PII Protection"
+    - "AI Governance"
+  aiCapabilities:
+    - "LLM Serving"
+    - "Retrieval-Augmented Generation (RAG)"
+    - "AI Content Safety"
+    - "AI Red Teaming"
+    - "Guardrail Policy Enforcement"
+  technologies:
+    - name: "vLLM"
+      role: "GPU-Accelerated LLM Serving"
+      partner: "Community"
+    - name: "LlamaStack"
+      role: "RAG Orchestration"
+      partner: "Meta"
+    - name: "pgvector"
+      role: "Vector Database"
+      partner: "Community"
+    - name: "F5 AI Security Operator"
+      role: "AI Guardrails & Policy Enforcement"
+      partner: "F5"
+    - name: "CalypsoAI Moderator"
+      role: "Moderation UI & Audit Logging"
+      partner: "F5 / CalypsoAI"
+    - name: "Prefect"
+      role: "Workflow Orchestration"
+      partner: "Prefect"
+    - name: "OpenShift AI (KServe)"
+      role: "Model Serving Infrastructure"
+      partner: "Red Hat"
+    - name: "Streamlit"
+      role: "RAG Chat Frontend"
+      partner: "Community"
+    - name: "Node Feature Discovery"
+      role: "Hardware Feature Detection"
+      partner: "Red Hat"
+    - name: "NVIDIA GPU Operator"
+      role: "GPU Management"
+      partner: "NVIDIA"
+    - name: "F5 Distributed Cloud (XC)"
+      role: "Customer Edge Mesh"
+      partner: "F5"
+  tags:
+    - "ai-security"
+    - "guardrails"
+    - "rag"
+    - "llm"
+    - "prompt-injection"
+    - "pii-protection"
+    - "content-safety"
+    - "vllm"
+    - "llamastack"
+    - "f5"
+    - "gpu"
+    - "openshift-ai"
+    - "red-teaming"
+  estimatedDeploymentTime: 30
+
+prerequisites:
+  openshift:
+    minimumVersion: "4.18"
+    tested:
+      - "4.18"
+  operators:
+    - name: "Node Feature Discovery Operator"
+      namespace: "cluster"
+      required: true
+      autoInstalled: false
+      installationHint: "Install from OperatorHub before deploying. Required for GPU node detection."
+    - name: "NVIDIA GPU Operator"
+      namespace: "cluster"
+      required: true
+      autoInstalled: false
+      installationHint: "Install from OperatorHub before deploying. Required for GPU workload scheduling on NVIDIA GPUs."
+    - name: "OpenShift AI (KServe)"
+      namespace: "cluster"
+      required: true
+      autoInstalled: false
+      installationHint: "Install OpenShift AI with KServe serving runtime enabled. Required CRDs: inferenceservices.serving.kserve.io, servingruntimes.serving.kserve.io."
+    - name: "F5 AI Security Operator"
+      namespace: "target"
+      required: true
+      autoInstalled: true
+      minimumVersion: "0.8.1"
+      installationHint: "Automatically installed by the quickstart via OLM Subscription from certified-operators catalog."
+  resources:
+    minimum:
+      cpu: "24"
+      memory: "64Gi"
+      storage: "300Gi"
+      gpu:
+        count: 3
+        memory: "24Gi"
+    recommended:
+      cpu: "32"
+      memory: "96Gi"
+      storage: "500Gi"
+      gpu:
+        count: 3
+        memory: "48Gi"
+  storageClasses:
+    - name: "any-rwo"
+      accessModes:
+        - "ReadWriteOnce"
+      minimumSize: "50Gi"
+      usage: "pgvector database, model cache, and LlamaStack persistent storage. Requires dynamic provisioning."
+  externalServices:
+    - name: "Hugging Face"
+      required: true
+      purpose: "Model downloads (Llama, Llama Guard, Qwen models)"
+      configurationHint: "Provide a Hugging Face token (HF_TOKEN) with access to gated models (e.g., meta-llama/Llama-Guard-3-8B)."
+    - name: "CalypsoAI Harbor Registry"
+      required: true
+      purpose: "F5 AI Security container images"
+      configurationHint: "Provide DOCKER_USERNAME, DOCKER_PASSWORD, and DOCKER_EMAIL for harbor.calypsoai.com registry access."
+    - name: "F5 XC Console"
+      required: false
+      purpose: "F5 Distributed Cloud Customer Edge mesh deployment"
+      configurationHint: "Provide F5XC_TOKEN and F5XC_CLUSTER_NAME for CE site registration. Optional — only needed for F5 XC mesh connectivity."
+    - name: "certified-operators CatalogSource"
+      required: true
+      purpose: "OLM catalog for F5 AI Security Operator subscription"
+      configurationHint: "Must be available on the cluster. Standard on connected OpenShift clusters."
+
+deployment:
+  supportedActions:
+    - "CHECK_PRE_REQS"
+    - "STATUS"
+    - "INSTALL"
+    - "UNINSTALL_DELETE_ALL"
+    - "UNINSTALL_KEEP_DATA"
+    - "UPGRADE"
+  supportedModes:
+    - "DEMO"
+  installer:
+    image: "quay.io/rh-ai-quickstart/f5-ai-guardrails-installer:1.0.0"
+    command: ["/installer/entrypoint.sh"]
+    requiredEnv:
+      - "TARGET_NAMESPACE"
+      - "ACTION"
+      - "INSTALL_MODE"
+      - "HF_TOKEN"
+      - "DOCKER_USERNAME"
+      - "DOCKER_PASSWORD"
+      - "DOCKER_EMAIL"
+      - "F5_LICENSE"
+    rbac:
+      serviceAccount:
+        name: "f5-ai-guardrails-installer"
+        namespace: "default"
+      defaultNamespaceRole:
+        name: "f5-ai-guardrails-installer"
+        namespace: "default"
+        rules:
+          - apiGroups: [""]
+            resources: ["pods", "configmaps"]
+            verbs: ["get", "list", "watch"]
+          - apiGroups: ["batch"]
+            resources: ["jobs"]
+            verbs: ["get", "list", "watch"]
+      defaultNamespaceRoleBinding:
+        name: "f5-ai-guardrails-installer"
+        namespace: "default"
+        roleRef:
+          kind: "Role"
+          name: "f5-ai-guardrails-installer"
+        subjects:
+          - kind: "ServiceAccount"
+            name: "f5-ai-guardrails-installer"
+            namespace: "default"
+      clusterRole:
+        name: "f5-ai-guardrails-installer-${TARGET_NAMESPACE}"
+        rules:
+          - apiGroups: [""]
+            resources: ["nodes"]
+            verbs: ["get", "list"]
+          - apiGroups: ["storage.k8s.io"]
+            resources: ["storageclasses"]
+            verbs: ["get", "list"]
+          - apiGroups: ["config.openshift.io"]
+            resources: ["clusterversions", "ingresses"]
+            verbs: ["get", "list"]
+          - apiGroups: ["apiextensions.k8s.io"]
+            resources: ["customresourcedefinitions"]
+            verbs: ["get", "list"]
+          - apiGroups: ["packages.operators.coreos.com"]
+            resources: ["packagemanifests"]
+            verbs: ["get", "list"]
+          - apiGroups: ["machineconfiguration.openshift.io"]
+            resources: ["machineconfigpools"]
+            verbs: ["get", "list"]
+          - apiGroups: ["tuned.openshift.io"]
+            resources: ["tuneds"]
+            verbs: ["get", "list"]
+          - apiGroups: [""]
+            resources: ["namespaces"]
+            verbs: ["get", "list", "create", "delete", "watch"]
+          - apiGroups: [""]
+            resources: ["pods", "pods/log", "services", "endpoints", "configmaps", "secrets", "persistentvolumeclaims", "serviceaccounts", "events"]
+            verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+          - apiGroups: ["apps"]
+            resources: ["deployments", "statefulsets", "replicasets", "daemonsets"]
+            verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+          - apiGroups: ["batch"]
+            resources: ["jobs", "cronjobs"]
+            verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+          - apiGroups: ["route.openshift.io"]
+            resources: ["routes"]
+            verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+          - apiGroups: ["rbac.authorization.k8s.io"]
+            resources: ["roles", "rolebindings", "clusterroles", "clusterrolebindings"]
+            verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+          - apiGroups: ["operators.coreos.com"]
+            resources: ["subscriptions", "operatorgroups", "clusterserviceversions", "installplans"]
+            verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+          - apiGroups: ["ai.security.f5.com"]
+            resources: ["securityoperators"]
+            verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+          - apiGroups: ["serving.kserve.io"]
+            resources: ["inferenceservices", "servingruntimes"]
+            verbs: ["get", "list", "watch"]
+          - apiGroups: ["security.openshift.io"]
+            resources: ["securitycontextconstraints"]
+            verbs: ["get", "list", "watch", "create", "update", "patch"]
+          - apiGroups: [""]
+            resources: ["secrets"]
+            verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+      clusterRoleBinding:
+        name: "f5-ai-guardrails-installer-${TARGET_NAMESPACE}"
+        roleRef:
+          kind: "ClusterRole"
+          name: "f5-ai-guardrails-installer-${TARGET_NAMESPACE}"
+        subjects:
+          - kind: "ServiceAccount"
+            name: "f5-ai-guardrails-installer"
+            namespace: "default"
+  defaultNamespace: "f5-ai-guardrails"
+  quickstartResources:
+    namespaceScoped:
+      - apiGroups: [""]
+        resources: ["pods", "services", "secrets", "configmaps", "persistentvolumeclaims", "serviceaccounts"]
+        description: "Core application resources (pgvector, vLLM, LlamaStack, Streamlit, F5 operator components)"
+      - apiGroups: ["apps"]
+        resources: ["deployments", "statefulsets"]
+        description: "Application workloads and databases across 5 namespaces"
+      - apiGroups: ["route.openshift.io"]
+        resources: ["routes"]
+        description: "Application ingress (Moderator UI, Moderator Auth, RAG frontend)"
+      - apiGroups: ["operators.coreos.com"]
+        resources: ["subscriptions", "operatorgroups", "clusterserviceversions"]
+        description: "F5 AI Security Operator subscription (namespace-scoped in f5-ai-sec)"
+      - apiGroups: ["ai.security.f5.com"]
+        resources: ["securityoperators"]
+        description: "F5 SecurityOperator custom resource controlling the guardrails deployment"
+    clusterScoped:
+      - apiGroups: ["security.openshift.io"]
+        resources: ["securitycontextconstraints"]
+        description: "SCC for KubeAI inference model pods (openshift-inference-models-scc)"
+
+parameters:
+  secrets:
+    - name: "HF_TOKEN"
+      displayName: "Hugging Face Token"
+      description: "API token for downloading gated models from Hugging Face (Llama, Llama Guard, Qwen)."
+      type: "password"
+      required: true
+      llmGuidance: "REQUIRED — must have access to gated models like meta-llama/Llama-Guard-3-8B. Ask the user to create a token at huggingface.co/settings/tokens with read access."
+    - name: "DOCKER_USERNAME"
+      displayName: "F5 Registry Username"
+      description: "Username for CalypsoAI Harbor registry (harbor.calypsoai.com)."
+      type: "string"
+      required: true
+      llmGuidance: "REQUIRED — credentials provided by F5/CalypsoAI for pulling AI Security container images. Ask user for their registry credentials."
+    - name: "DOCKER_PASSWORD"
+      displayName: "F5 Registry Password"
+      description: "Password for CalypsoAI Harbor registry."
+      type: "password"
+      required: true
+      llmGuidance: "REQUIRED — always ask alongside DOCKER_USERNAME. Never display or log this value."
+    - name: "DOCKER_EMAIL"
+      displayName: "F5 Registry Email"
+      description: "Email for CalypsoAI Harbor registry."
+      type: "string"
+      required: true
+      llmGuidance: "REQUIRED — ask alongside DOCKER_USERNAME and DOCKER_PASSWORD."
+    - name: "F5_LICENSE"
+      displayName: "F5 AI Security License"
+      description: "License string for the F5 AI Security Operator."
+      type: "password"
+      required: true
+      llmGuidance: "REQUIRED — license string provided by F5 for the AI Security product. Without this, the SecurityOperator CR will not activate."
+    - name: "F5XC_TOKEN"
+      displayName: "F5 XC API Token"
+      description: "API token for F5 Distributed Cloud Customer Edge site registration."
+      type: "password"
+      required: false
+      llmGuidance: "OPTIONAL — only needed for F5 XC Customer Edge mesh deployment. Skip if user does not need F5 XC connectivity."
+    - name: "LLM_API_TOKEN"
+      displayName: "LLM API Token"
+      description: "API token for the LLM inference service (vLLM). Defaults to the HF_TOKEN if not set separately."
+      type: "password"
+      required: false
+      llmGuidance: "OPTIONAL — only ask if the user has a separate API token for their LLM endpoint. Usually defaults to HF_TOKEN."
+    - name: "SAFETY_API_TOKEN"
+      displayName: "Safety Model API Token"
+      description: "API token for the safety/guardrail model inference service. Defaults to the HF_TOKEN if not set separately."
+      type: "password"
+      required: false
+      llmGuidance: "OPTIONAL — only ask if the user has a separate API token for their safety model endpoint. Usually defaults to HF_TOKEN."
+  configuration:
+    - name: "LLM"
+      displayName: "LLM Model Name"
+      description: "Hugging Face model ID for the primary LLM (e.g., meta-llama/Llama-3.2-3B-Instruct)."
+      type: "string"
+      required: false
+      default: "meta-llama/Llama-3.2-3B-Instruct"
+      llmGuidance: "Ask which LLM model to serve. Supported models include Llama 3.2 1B/3B, Llama 3.1 8B/70B. Default is the 3B model for demo use."
+    - name: "SAFETY"
+      displayName: "Safety Model Name"
+      description: "Hugging Face model ID for the safety/guardrail model (e.g., meta-llama/Llama-Guard-3-8B)."
+      type: "string"
+      required: false
+      default: "meta-llama/Llama-Guard-3-8B"
+      llmGuidance: "Ask which safety model to use. Llama Guard 3 8B is the recommended default for content safety classification."
+    - name: "DEVICE"
+      displayName: "Compute Device"
+      description: "Device for model inference (auto, cuda, cpu)."
+      type: "string"
+      required: false
+      default: "auto"
+      llmGuidance: "Usually leave as 'auto'. Only change if user specifically wants CPU-only inference (much slower)."
+    - name: "LLM_URL"
+      displayName: "LLM Endpoint URL"
+      description: "URL for the LLM inference endpoint. Auto-detected from KServe InferenceService if not set."
+      type: "string"
+      required: false
+      llmGuidance: "OPTIONAL — only set if using an external LLM endpoint instead of the vLLM instance deployed by this quickstart."
+    - name: "SAFETY_URL"
+      displayName: "Safety Model Endpoint URL"
+      description: "URL for the safety model inference endpoint. Auto-detected from KServe InferenceService if not set."
+      type: "string"
+      required: false
+      llmGuidance: "OPTIONAL — only set if using an external safety model endpoint."
+    - name: "MODERATOR_HOST_PREFIX"
+      displayName: "Moderator Host Prefix"
+      description: "Hostname prefix for the CalypsoAI Moderator route. Combined with the cluster ingress domain."
+      type: "string"
+      required: false
+      default: "cai-moderator"
+      llmGuidance: "OPTIONAL — the default 'cai-moderator' works for most deployments. Only change if there are route naming conflicts."
+    - name: "F5XC_CLUSTER_NAME"
+      displayName: "F5 XC Cluster Name"
+      description: "Name for the F5 XC Customer Edge site. Used during CE registration."
+      type: "string"
+      required: false
+      llmGuidance: "OPTIONAL — only needed if deploying the F5 XC Customer Edge mesh. Pair with F5XC_TOKEN."
+    - name: "SKIP_F5_GUARDRAILS"
+      displayName: "Skip F5 Guardrails"
+      description: "Set to '1' to install only the RAG stack without F5 AI Security components."
+      type: "string"
+      required: false
+      default: "0"
+      llmGuidance: "OPTIONAL — only set to '1' if user explicitly wants the RAG chatbot without guardrails. This skips the entire F5 AI Security operator deployment."
+    - name: "MODERATOR_HOST_AUTO"
+      displayName: "Auto-Detect Moderator Host"
+      description: "Set to '1' to auto-compute the Moderator host from the cluster ingress domain."
+      type: "string"
+      required: false
+      default: "1"
+      llmGuidance: "Leave as '1' (default). Only set to '0' if user wants to manually specify the Moderator host."
+
+access:
+  endpoints:
+    - name: "moderator-ui"
+      displayName: "Moderator UI"
+      type: "route"
+      path: "/"
+      description: "CalypsoAI Moderator dashboard for policy management, audit logs, and red-teaming."
+      public: true
+      authentication: "required"
+    - name: "moderator-auth"
+      displayName: "Moderator Auth"
+      type: "route"
+      path: "/auth"
+      description: "CalypsoAI Moderator authentication endpoint."
+      public: true
+      authentication: "required"
+    - name: "rag-frontend"
+      displayName: "RAG Frontend"
+      type: "route"
+      path: "/"
+      description: "Streamlit-based RAG chatbot interface."
+      public: true
+      authentication: "none"
+    - name: "llamastack-api"
+      displayName: "LlamaStack API"
+      type: "service"
+      path: "/v1"
+      description: "LlamaStack REST API for RAG inference and agent interactions."
+      public: false
+      authentication: "none"
+    - name: "guardrails-proxy"
+      displayName: "Guardrails Proxy"
+      type: "service"
+      path: "/"
+      description: "F5 AI Guardrails proxy intercepting LLM requests for policy enforcement."
+      public: false
+      authentication: "none"
+  defaultCredentials:
+    - name: "Moderator Admin"
+      username: "admin"
+      passwordParameter: "pass"
+      description: "Default administrator account for the CalypsoAI Moderator UI. Change after first login."
+      roles: ["admin"]
+
+cleanup:
+  dataDescription: |
+    This quickstart stores the following data:
+    - Vector embeddings and document chunks (pgvector database PVCs)
+    - LLM model weights cached on persistent volumes
+    - F5 AI Security operator state and policy configurations
+    - Audit logs and moderation history in the Moderator database
+    - Prefect workflow state and execution history
+  warning: |
+    Choose uninstall mode:
+
+    uninstall_delete_all:
+      Removes ALL quickstart resources across 5 namespaces
+      (target namespace, f5-ai-sec, cai-moderator, prefect, f5-ai-sec-inference),
+      deletes PVCs, and removes the F5 AI Security Operator Subscription and CSVs.
+      This permanently deletes all data. Cannot be undone.
+
+    uninstall_keep_data:
+      Removes workloads but preserves PVCs and namespaces in the F5 namespaces.
+      You can reinstall later and your data will still be there.
+
+documentation:
+  readme: "https://github.com/rh-ai-quickstart/f5-ai-guardrails/blob/main/README.md"
+  installGuide: "https://github.com/rh-ai-quickstart/f5-ai-guardrails/blob/main/docs/installing_f5_ai_guardrails.md"
+  upgradeGuide: "https://github.com/rh-ai-quickstart/f5-ai-guardrails/blob/main/docs/upgrading_f5_ai_guardrails.md"
+  troubleshootingGuide: "https://github.com/rh-ai-quickstart/f5-ai-guardrails/blob/main/docs/troubleshooting.md"
+
+llmContext:
+  whenToRecommend: |
+    Recommend this quickstart when users mention:
+    - Securing LLM/AI applications with guardrails or content filters
+    - Protecting against prompt injection attacks
+    - PII detection and redaction in AI responses
+    - Toxicity filtering for chatbots or AI assistants
+    - AI compliance, governance, or audit requirements
+    - Building a RAG chatbot with security controls
+    - F5 AI Security or CalypsoAI Moderator
+    - Red-teaming or adversarial testing of AI systems
+    - Topic enforcement or content policy for LLMs
+  faq:
+    - question: "What GPU resources are required?"
+      answer: "Minimum 3 GPUs with 24GB VRAM each (e.g., NVIDIA A10G). Recommended 3 GPUs with 48GB VRAM each (e.g., NVIDIA A100). One GPU serves the primary LLM, one serves the safety model, and one handles inference workloads."
+    - question: "Can I use this without GPUs?"
+      answer: "No. The vLLM model serving and safety model inference require NVIDIA GPUs. The minimum configuration needs 3 GPUs with 24GB VRAM each."
+    - question: "What does F5 AI Guardrails protect against?"
+      answer: "Prompt injection attacks, PII leakage, toxic content generation, off-topic responses, and policy violations. Policies are configurable through the CalypsoAI Moderator UI."
+    - question: "How long does deployment take?"
+      answer: "Approximately 30 minutes. The primary time is spent on model downloads from Hugging Face and the F5 AI Security operator reaching Succeeded state."
+    - question: "What credentials do I need before starting?"
+      answer: "You need: (1) a Hugging Face token with access to gated Llama models, (2) CalypsoAI Harbor registry credentials (username, password, email) from F5, and (3) an F5 AI Security license string. Optionally, F5 XC token and cluster name for Customer Edge mesh."
