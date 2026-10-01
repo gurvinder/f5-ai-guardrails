@@ -7,9 +7,9 @@ cleanup_quickstart() {
   local mode=$1
   local ns="$TARGET_NAMESPACE"
   local f5_ns="${F5_AI_SECURITY_NAMESPACE:-f5-ai-sec}"
-  local mod_ns="${F5_MODERATOR_NS:-cai-moderator}"
-  local prefect_ns="${F5_PREFECT_NS:-prefect}"
-  local inf_ns="${F5_INFERENCE_NS:-f5-ai-sec-inference}"
+  local mod_ns="${F5_MODERATOR_NAMESPACE:-cai-moderator}"
+  local prefect_ns="${F5_PREFECT_NAMESPACE:-prefect}"
+  local inf_ns="${F5_INFERENCE_NAMESPACE:-f5-ai-sec-inference}"
   local operator_sub="${OPERATOR_SUBSCRIPTION:-f5-ai-security-operator}"
   local secop_name="${SECURITYOPERATOR_NAME:-security-operator-demo}"
 

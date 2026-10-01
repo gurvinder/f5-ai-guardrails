@@ -142,7 +142,7 @@ From `deploy/helm`, with `oc` and `helm` available. Cluster admin is required fo
    - **`registry.*`** — Harbor / F5 registry credentials  
    - **`securityOperator.moderator.license`** — F5 license string  
 
-   **`make install NAMESPACE=…`** fills **`routes.hostname`** and **`securityOperator.moderator.baseUrl`** from the cluster: `https://<prefix>.<ingress.apps.domain>`, with default **`MODERATOR_HOST_PREFIX=aisec`** (same as the install doc). Override the label with `make install NAMESPACE=… MODERATOR_HOST_PREFIX=othername`, or set **`MODERATOR_HOST_AUTO=false`** and define `routes.hostname` + `securityOperator.moderator.baseUrl` yourself in the values file. Override F5 namespaces with **`F5_*_NS`** only if needed.
+   **`make install NAMESPACE=…`** fills **`routes.hostname`** and **`securityOperator.moderator.baseUrl`** from the cluster: `https://<prefix>.<ingress.apps.domain>`, with default **`MODERATOR_HOST_PREFIX=aisec`** (same as the install doc). Override the label with `make install NAMESPACE=… MODERATOR_HOST_PREFIX=othername`, or set **`MODERATOR_HOST_AUTO=false`** and define `routes.hostname` + `securityOperator.moderator.baseUrl` yourself in the values file. Override F5 namespaces with **`F5_*_NAMESPACE`** only if needed.
 
 **Credentials (aligned with RAG):** Prefer the gitignored values files so secrets are not committed. For automation, you can export optional environment variables before `make install` or `make install-f5-ai-security`; if set, they are passed to Helm as `--set-string` (same idea as `HF_TOKEN` for the RAG chart):
 
@@ -185,14 +185,14 @@ make install NAMESPACE=<your-rag-namespace>
 | Make variable | Role |
 |---------------|------|
 | `F5_AI_SECURITY_NAMESPACE` | Operator install namespace and Helm `-n` target (default `f5-ai-sec`) |
-| `F5_MODERATOR_NS` | Moderator / `SecurityOperator` CR namespace (default `cai-moderator`) |
-| `F5_PREFECT_NS` | Prefect (default `prefect`) |
-| `F5_INFERENCE_NS` | Inference workloads (default `f5-ai-sec-inference`) |
+| `F5_MODERATOR_NAMESPACE` | Moderator / `SecurityOperator` CR namespace (default `cai-moderator`) |
+| `F5_PREFECT_NAMESPACE` | Prefect (default `prefect`) |
+| `F5_INFERENCE_NAMESPACE` | Inference workloads (default `f5-ai-sec-inference`) |
 
 Example:
 
 ```bash
-make install NAMESPACE=my-rag F5_AI_SECURITY_NAMESPACE=my-f5-op F5_MODERATOR_NS=my-mod
+make install NAMESPACE=my-rag F5_AI_SECURITY_NAMESPACE=my-f5-op F5_MODERATOR_NAMESPACE=my-mod
 ```
 
 The F5 chart runs **after** the `llamastack` deployment rolls out successfully in `NAMESPACE`. The chart applies the operator `Subscription` first; the `SecurityOperator` CR is applied on a **second** `helm upgrade` pass after a best-effort `oc wait` on the operator CSV so the CRD exists (`SKIP_F5_OPERATOR_WAIT=1` skips that wait).
@@ -302,14 +302,14 @@ When both fields are set, chat requests are routed through the guardrail proxy. 
 
 ### Uninstall
 
-From `deploy/helm`, `make uninstall` runs `helm uninstall` for the RAG release, then `helm uninstall` for the `f5-ai-security` release (if present), then deletes the `SecurityOperator`, operator `Subscription`/CSVs, product namespaces (defaults or whatever you set with `F5_*_NS` during install), and finally the RAG `NAMESPACE` project.
+From `deploy/helm`, `make uninstall` runs `helm uninstall` for the RAG release, then `helm uninstall` for the `f5-ai-security` release (if present), then deletes the `SecurityOperator`, operator `Subscription`/CSVs, product namespaces (defaults or whatever you set with `F5_*_NAMESPACE` during install), and finally the RAG `NAMESPACE` project.
 
 ```bash
 cd deploy/helm
 make uninstall NAMESPACE=<NAMESPACE>
 ```
 
-Use the same `F5_AI_SECURITY_NAMESPACE`, `F5_MODERATOR_NS`, `F5_PREFECT_NS`, and `F5_INFERENCE_NS` as at install time if you overrode defaults. Other Makefile defaults: `SECURITYOPERATOR_NAME`, `OPERATOR_SUBSCRIPTION`.
+Use the same `F5_AI_SECURITY_NAMESPACE`, `F5_MODERATOR_NAMESPACE`, `F5_PREFECT_NAMESPACE`, and `F5_INFERENCE_NAMESPACE` as at install time if you overrode defaults. Other Makefile defaults: `SECURITYOPERATOR_NAME`, `OPERATOR_SUBSCRIPTION`.
 
 ## AI security capabilities
 

@@ -127,9 +127,9 @@ deploy_quickstart() {
 install_f5_ai_security() {
   local rag_ns=$1
   local f5_ns="${F5_AI_SECURITY_NAMESPACE:-f5-ai-sec}"
-  local mod_ns="${F5_MODERATOR_NS:-cai-moderator}"
-  local prefect_ns="${F5_PREFECT_NS:-prefect}"
-  local inf_ns="${F5_INFERENCE_NS:-f5-ai-sec-inference}"
+  local mod_ns="${F5_MODERATOR_NAMESPACE:-cai-moderator}"
+  local prefect_ns="${F5_PREFECT_NAMESPACE:-prefect}"
+  local inf_ns="${F5_INFERENCE_NAMESPACE:-f5-ai-sec-inference}"
 
   log_status "running" "deploying" "Installing F5 AI Security chart (operator ns: $f5_ns)..."
 
@@ -238,9 +238,9 @@ install_f5_ai_security() {
 check_deployment_status() {
   local ns="$TARGET_NAMESPACE"
   local f5_ns="${F5_AI_SECURITY_NAMESPACE:-f5-ai-sec}"
-  local mod_ns="${F5_MODERATOR_NS:-cai-moderator}"
-  local prefect_ns="${F5_PREFECT_NS:-prefect}"
-  local inf_ns="${F5_INFERENCE_NS:-f5-ai-sec-inference}"
+  local mod_ns="${F5_MODERATOR_NAMESPACE:-cai-moderator}"
+  local prefect_ns="${F5_PREFECT_NAMESPACE:-prefect}"
+  local inf_ns="${F5_INFERENCE_NAMESPACE:-f5-ai-sec-inference}"
 
   log_status "running" "checking-status" "Checking RAG pods in $ns..."
   oc get pods -n "$ns" 2>/dev/null || true
@@ -257,7 +257,7 @@ check_deployment_status() {
 
 get_endpoints() {
   local ns="$TARGET_NAMESPACE"
-  local mod_ns="${F5_MODERATOR_NS:-cai-moderator}"
+  local mod_ns="${F5_MODERATOR_NAMESPACE:-cai-moderator}"
   local endpoints="["
   local first=true
 
