@@ -194,6 +194,12 @@ case "$ACTION" in
     ;;
 
   INSTALL)
+    : "${HF_TOKEN:?HF_TOKEN must be set for installation}"
+    : "${DOCKER_USERNAME:?DOCKER_USERNAME must be set for installation}"
+    : "${DOCKER_PASSWORD:?DOCKER_PASSWORD must be set for installation}"
+    : "${DOCKER_EMAIL:?DOCKER_EMAIL must be set for installation}"
+    : "${F5_LICENSE:?F5_LICENSE must be set for installation}"
+
     log_status "running" "validating" "Validating prerequisites..."
     check_prerequisites || exit 2
 
