@@ -102,7 +102,7 @@ report_pod_status() {
   ready=$(echo "$pods" | awk '{split($2,a,"/"); if(a[1]==a[2] && a[1]!="0") count++} END{print count+0}')
 
   local failed
-  failed=$(echo "$pods" | { grep -E "Error|CrashLoopBackOff|ImagePullBackOff" || true; } | wc -l | tr -d ' ')
+  failed=$(echo "$pods" | { grep -E "Error|CrashLoopBackOff|ImagePullBackOff|Pending|Unknown|Evicted|OOMKilled" || true; } | wc -l | tr -d ' ')
 
   log_status "running" "verifying" "$label pods: $ready/$total ready, $running running, $failed failed"
 
