@@ -22,7 +22,8 @@ RUN curl -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/ope
     rm /tmp/oc.tar.gz
 
 # Helm CLI
-RUN curl -L https://get.helm.sh/helm-v3.14.0-linux-amd64.tar.gz | \
+ARG HELM_VERSION=3.14.0
+RUN curl -L https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz | \
     tar -xzv -C /tmp && \
     mv /tmp/linux-amd64/helm /usr/local/bin/helm && \
     chmod +x /usr/local/bin/helm && \
